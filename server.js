@@ -1,4 +1,3 @@
-server_js = """
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
@@ -58,4 +57,3 @@ wss.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`🟢 Server draait op poort ${PORT}`);
 });
-"""
