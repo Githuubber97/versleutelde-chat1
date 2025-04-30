@@ -1,5 +1,3 @@
-// server.js – Glitch-geschikte WebSocket server + frontend
-
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
@@ -10,23 +8,49 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
-
-// 📁 Statische bestanden (zoals index.html)
 app.use(express.static(path.join(__dirname, ".")));
 
+let users = new Map(); // socket => username
+
+function broadcastOnlineUsers() {
+  const names = Array.from(users.values());
+  const msg = JSON.stringify({ type: "users", users: names });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  }
+}
+
 wss.on("connection", (socket) => {
-  console.log("✅ Verbonden via WebSocket");
+  console.log("✅ Verbonden");
 
   socket.on("message", (msg) => {
-    console.log("📩 Bericht:", msg);
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(msg);
+    try {
+      const data = JSON.parse(msg);
+      if (data.type === "register") {
+        users.set(socket, data.name);
+        broadcastOnlineUsers();
+      } else if (data.type === "message") {
+        // Stuur bericht door
+        for (const client of wss.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: "message",
+              name: data.name,
+              encrypted: data.encrypted
+            }));
+          }
+        }
       }
-    });
+    } catch (e) {
+      console.error("❌ Fout bij verwerken:", e);
+    }
   });
 
   socket.on("close", () => {
+    users.delete(socket);
+    broadcastOnlineUsers();
     console.log("❌ Verbinding gesloten");
   });
 });
