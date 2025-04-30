@@ -124,28 +124,16 @@
         name.textContent = data.name + " zegt:";
 
         const content = document.createElement("div");
-        content.textContent = data.encrypted;
 
-        const decryptInput = document.createElement("input");
-        decryptInput.type = "password";
-        decryptInput.placeholder = "🔑 Voer sleutel in";
-
-        const decryptButton = document.createElement("button");
-        decryptButton.textContent = "🔓 Ontsleutelen";
-        decryptButton.onclick = () => {
-          const pass = decryptInput.value;
-          try {
-            const decrypted = CryptoJS.AES.decrypt(data.encrypted, pass).toString(CryptoJS.enc.Utf8);
-            content.textContent = decrypted || "[❌ Sleutel klopt niet]";
-          } catch {
-            content.textContent = "[⚠️ Fout bij decryptie]";
-          }
-        };
+        try {
+          const decrypted = CryptoJS.AES.decrypt(data.encrypted, encryptionKey).toString(CryptoJS.enc.Utf8);
+          content.textContent = decrypted || "[❌ Sleutel klopt niet]";
+        } catch {
+          content.textContent = "[⚠️ Fout bij decryptie]";
+        }
 
         msgBox.appendChild(name);
         msgBox.appendChild(content);
-        msgBox.appendChild(decryptInput);
-        msgBox.appendChild(decryptButton);
         messagesDiv.appendChild(msgBox);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
