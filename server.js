@@ -1,3 +1,4 @@
+
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
@@ -10,47 +11,51 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, ".")));
 
-let users = new Map(); // socket => username
+let users = new Map(); // naam => socket
 
-function broadcastOnlineUsers() {
-  const names = Array.from(users.values());
+function updateUserList() {
+  const names = Array.from(users.keys());
   const msg = JSON.stringify({ type: "users", users: names });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
+  for (const socket of users.values()) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(msg);
     }
   }
 }
 
 wss.on("connection", (socket) => {
-  console.log("✅ Verbonden");
+  let username = null;
 
   socket.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
+
       if (data.type === "register") {
-        users.set(socket, data.name);
-        broadcastOnlineUsers();
-      } else if (data.type === "message") {
-        for (const client of wss.clients) {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-              type: "message",
-              name: data.name,
-              encrypted: data.encrypted
-            }));
-          }
+        username = data.name;
+        users.set(username, socket);
+        updateUserList();
+      }
+
+      else if (data.type === "message") {
+        const toSocket = users.get(data.to);
+        if (toSocket && toSocket.readyState === WebSocket.OPEN) {
+          toSocket.send(JSON.stringify({
+            type: "message",
+            from: username,
+            encrypted: data.encrypted
+          }));
         }
       }
-    } catch (e) {
-      console.error("❌ Fout bij verwerken:", e);
+    } catch (err) {
+      console.error("Fout bij verwerken:", err);
     }
   });
 
   socket.on("close", () => {
-    users.delete(socket);
-    broadcastOnlineUsers();
-    console.log("❌ Verbinding gesloten");
+    if (username) {
+      users.delete(username);
+      updateUserList();
+    }
   });
 });
 
