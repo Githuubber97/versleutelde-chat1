@@ -17,18 +17,11 @@
     h1 {
       text-align: center;
     }
-    input, textarea {
+    input, textarea, button {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
       font-size: 16px;
-    }
-    button {
-      padding: 10px;
-      margin-top: 5px;
-      font-size: 16px;
-      cursor: pointer;
-      width: 100%;
     }
     #messages {
       background: #fff;
@@ -53,27 +46,63 @@
     .decrypt-box {
       margin-top: 6px;
     }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #overlay input, #overlay button {
+      width: 300px;
+      margin: 10px;
+    }
   </style>
 </head>
 <body>
 
+  <div id="overlay">
+    <h2>Voer je naam en sleutel in</h2>
+    <input type="text" id="overlayName" placeholder="👤 Je naam">
+    <input type="password" id="overlayKey" placeholder="🔑 Je geheime sleutel">
+    <button onclick="startChat()">Start chat</button>
+  </div>
+
   <h1>🔐 Realtime Chat met AES</h1>
 
-  <input type="text" id="username" placeholder="👤 Je naam">
-  <input type="password" id="key" placeholder="🔑 Wachtwoord voor encryptie">
   <textarea id="message" rows="2" placeholder="💬 Typ je bericht..."></textarea>
   <button onclick="sendMessage()">Verzend bericht</button>
 
   <div id="messages"></div>
 
   <script>
-    // Verbind met veilige WebSocket-server (Glitch gebruikt wss://)
+    let username = "";
+    let encryptionKey = "";
+
     const socket = new WebSocket(`wss://${location.host}`);
     const messagesDiv = document.getElementById("messages");
 
+    function startChat() {
+      const nameInput = document.getElementById("overlayName").value.trim();
+      const keyInput = document.getElementById("overlayKey").value.trim();
+
+      if (!nameInput || !keyInput) {
+        alert("Vul zowel je naam als sleutel in!");
+        return;
+      }
+
+      username = nameInput;
+      encryptionKey = keyInput;
+
+      document.getElementById("overlay").style.display = "none";
+    }
+
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
-
       const msgBox = document.createElement("div");
       msgBox.classList.add("message");
 
@@ -86,7 +115,7 @@
 
       const decryptInput = document.createElement("input");
       decryptInput.type = "password";
-      decryptInput.placeholder = "🔑 Voer wachtwoord in";
+      decryptInput.placeholder = "🔑 Voer sleutel in";
 
       const decryptButton = document.createElement("button");
       decryptButton.textContent = "🔓 Ontsleutelen";
@@ -109,19 +138,15 @@
     };
 
     function sendMessage() {
-      const name = document.getElementById("username").value.trim();
-      const key = document.getElementById("key").value;
       const msg = document.getElementById("message").value.trim();
-
-      if (!name || !key || !msg) {
-        alert("Vul naam, bericht en sleutel in!");
+      if (!username || !encryptionKey || !msg) {
+        alert("Chat is nog niet gestart of bericht is leeg.");
         return;
       }
 
-      const encrypted = CryptoJS.AES.encrypt(msg, key).toString();
-      const payload = { name: name, encrypted: encrypted };
+      const encrypted = CryptoJS.AES.encrypt(msg, encryptionKey).toString();
+      const payload = { name: username, encrypted: encrypted };
       socket.send(JSON.stringify(payload));
-
       document.getElementById("message").value = "";
     }
   </script>
