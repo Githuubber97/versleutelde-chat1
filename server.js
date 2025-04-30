@@ -1,3 +1,4 @@
+server_js = """
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
@@ -32,7 +33,6 @@ wss.on("connection", (socket) => {
         users.set(socket, data.name);
         broadcastOnlineUsers();
       } else if (data.type === "message") {
-        // Stuur bericht door
         for (const client of wss.clients) {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
@@ -58,3 +58,4 @@ wss.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`🟢 Server draait op poort ${PORT}`);
 });
+"""
