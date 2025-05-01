@@ -1,4 +1,3 @@
-
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
@@ -11,51 +10,54 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, ".")));
 
-let users = new Map(); // naam => socket
+let users = new Map(); // socket => username
 
-function updateUserList() {
-  const names = Array.from(users.keys());
+function broadcastOnlineUsers() {
+  const names = Array.from(users.values());
   const msg = JSON.stringify({ type: "users", users: names });
-  for (const socket of users.values()) {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(msg);
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg);
     }
   }
 }
 
 wss.on("connection", (socket) => {
-  let username = null;
+  console.log("✅ Nieuwe verbinding gemaakt");
 
   socket.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
 
       if (data.type === "register") {
-        username = data.name;
-        users.set(username, socket);
-        updateUserList();
+        users.set(socket, data.name);
+        broadcastOnlineUsers();
       }
 
       else if (data.type === "message") {
-        const toSocket = users.get(data.to);
-        if (toSocket && toSocket.readyState === WebSocket.OPEN) {
-          toSocket.send(JSON.stringify({
-            type: "message",
-            from: username,
-            encrypted: data.encrypted
-          }));
+        const payload = JSON.stringify({
+          type: "message",
+          name: data.name,
+          iv: data.iv,               // stuur IV mee
+          encrypted: data.encrypted // stuur encrypted data mee
+        });
+
+        for (const client of wss.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(payload);
+          }
         }
       }
-    } catch (err) {
-      console.error("Fout bij verwerken:", err);
+
+    } catch (e) {
+      console.error("❌ Fout bij verwerken bericht:", e);
     }
   });
 
   socket.on("close", () => {
-    if (username) {
-      users.delete(username);
-      updateUserList();
-    }
+    users.delete(socket);
+    broadcastOnlineUsers();
+    console.log("❌ Verbinding gesloten");
   });
 });
 
